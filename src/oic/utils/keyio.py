@@ -23,6 +23,9 @@ from jwkest.ecc import NISTEllipticCurve
 from jwkest.jwk import ECKey
 from jwkest.jwk import JWKException
 from jwkest.jwk import RSAKey
+from jwkest.jwk import PQC
+from jwkest.jwk import CryptographyECDSA
+from jwkest.jwk import CryptographyRSA
 from jwkest.jwk import SYMKey
 from jwkest.jwk import rsa_load
 
@@ -59,8 +62,8 @@ class JWKSError(KeyIOError):
     pass
 
 
-K2C = {"RSA": RSAKey, "EC": ECKey, "oct": SYMKey}
-KEYS = Union[RSAKey, SYMKey, ECKey]
+K2C = {"RSA": RSAKey, "EC": ECKey,  "PQC": PQC, "CryptographyECDSA": CryptographyECDSA, "CryptographyRSA": CryptographyRSA, "oct": SYMKey}
+KEYS = Union[RSAKey, SYMKey, ECKey, PQC, CryptographyECDSA, CryptographyRSA]
 
 
 class KeyBundle(object):
@@ -297,7 +300,7 @@ class KeyBundle(object):
         :return: If typ is undefined all the keys as a dictionary otherwise the appropriate keys in a list
         """
         self._uptodate()
-        _typs = [typ.lower(), typ.upper()]
+        _typs = [typ, typ.lower(), typ.upper()]
 
         if typ:
             return [k for k in self._keys if k.kty in _typs]
@@ -1026,7 +1029,6 @@ def create_and_store_rsa_key_pair(name="pyoidc", path=".", size=2048):
 
     return key
 
-
 def proper_path(path):
     """
     Clean up the path specification so it looks like something I could use.
@@ -1089,7 +1091,6 @@ def rsa_init(spec):
         _key = create_and_store_rsa_key_pair(**arg)
         kb.append(RSAKey(use=use, key=_key))
     return kb
-
 
 def keyjar_init(instance, key_conf, kid_template=""):
     """
@@ -1174,8 +1175,24 @@ def build_keyjar(key_conf, kid_template="", keyjar=None, kidd=None):
                     raise
             else:
                 kb = rsa_init(spec)
+
         elif typ == "EC":
             kb = ec_init(spec)
+
+        elif typ == "CRYPTOGRAPHYECDSA":
+            kb = KeyBundle(
+                keys={"kty": "CryptographyECDSA", "alg": "CryptographyECDSA", "key_file": spec["key"]},
+            )
+
+        elif typ == "CRYPTOGRAPHYRSA":
+            kb = KeyBundle(
+                keys={"kty": "CryptographyRSA", "alg": "CryptographyRSA", "key_file": spec["key"]},
+            )
+
+        elif typ == "PQC":
+            kb = KeyBundle(
+                keys={"kty": "PQC", "alg": spec["alg"]},
+            )
 
         for k in kb.keys():
             if kid_template:
